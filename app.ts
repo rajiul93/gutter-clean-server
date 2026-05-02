@@ -1,22 +1,39 @@
-import express from 'express';
-import { Request, Response } from 'express';
-import { UserRoutes } from './src/modules/user/user.router';
+import express, { Request, Response } from 'express';
+import cors from 'cors';
+import config from './src/config';
+import AppError from './src/errors/AppError';
+import globalErrorHandler from './src/middlewares/globalErrorHandler';
+import { AuthRoutes } from './src/modules/auth/auth.router';
+import { AddressRoutes } from './src/modules/address/address.router';
+import { AvailabilityRoutes } from './src/modules/availability/availability.router';
+import { AdminBookingRoutes, BookingRoutes } from './src/modules/booking/booking.router';
+
 const app = express();
+
+app.use(
+  cors({
+    origin: config.cors_origin.split(',').map((o) => o.trim()),
+    credentials: true,
+  }),
+);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-const port = 3000;
 
 app.get('/', (req: Request, res: Response) => {
-  res.send('Hello World!');
+  res.send('Gutter API');
 });
-app.use('/api/v1/user', UserRoutes);
 
-import AppError from './src/errors/AppError';
-// 404 handler for unknown routes
+app.use('/api/v1/auth', AuthRoutes);
+app.use('/api/v1/bookings', BookingRoutes);
+app.use('/api/v1/admin/bookings', AdminBookingRoutes);
+app.use('/api/v1/availability', AvailabilityRoutes);
+app.use('/api/v1/me/address', AddressRoutes);
+
 app.use((req, res, next) => {
   next(new AppError(`Route ${req.originalUrl} not found`, 404));
 });
 
-import globalErrorHandler from './src/middlewares/globalErrorHandler';
 app.use(globalErrorHandler);
+
 export default app;

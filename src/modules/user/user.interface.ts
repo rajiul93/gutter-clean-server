@@ -1,17 +1,17 @@
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 
 export type UserRole = 'USER' | 'ADMIN';
 
 export interface IUser {
-  role: UserRole;
-  age: number;
-  otp?: string;
-  isVerified?: boolean;
-  phone: string;
+  firebaseUid: string;
   email: string;
-  password: string;
+  displayName?: string;
+  photoURL?: string;
+  role: UserRole;
 }
 
-export interface UserModel extends Model<IUser> {
-  isUserExistsByEmail(email: string): Promise<IUser | null>;
+export interface IUserDoc extends IUser {
+  _id: Types.ObjectId;
 }
+
+export interface UserModel extends Model<IUser> {}
