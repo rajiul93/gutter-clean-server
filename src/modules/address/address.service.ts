@@ -9,12 +9,10 @@ export async function getAddressForUser(userId: string) {
 export async function upsertAddressForUser(
   userId: string,
   payload: {
-    line1: string;
-    line2?: string;
-    city: string;
-    state: string;
-    postalCode: string;
-    country?: string;
+    name: string;
+    email: string;
+    phone: string;
+    location: string;
   },
 ) {
   const oid = new Types.ObjectId(userId);
@@ -22,16 +20,14 @@ export async function upsertAddressForUser(
     { userId: oid },
     {
       $set: {
-        line1: payload.line1.trim(),
-        line2: payload.line2?.trim(),
-        city: payload.city.trim(),
-        state: payload.state.trim(),
-        postalCode: payload.postalCode.trim(),
-        country: (payload.country ?? 'USA').trim(),
+        name: payload.name.trim(),
+        email: payload.email.trim().toLowerCase(),
+        phone: payload.phone.trim(),
+        location: payload.location.trim(),
       },
       $setOnInsert: { userId: oid },
     },
-    { new: true, upsert: true, setDefaultsOnInsert: true },
+    { new: true, upsert: true, setDefaultsOnInsert: true, runValidators: true },
   ).lean();
   return doc;
 }

@@ -2,7 +2,12 @@ import type { JobSize, ServiceId } from '../../lib/booking-pricing';
 import type { SlotPeriod } from '../../lib/slot-capacity';
 import { Types } from 'mongoose';
 
-export type BookingStatus = 'pending' | 'confirmed' | 'cancelled';
+export type BookingStatus =
+  | 'pending'
+  | 'confirmed'
+  | 'in_progress'
+  | 'completed'
+  | 'cancelled';
 
 export interface IBooking {
   userId: Types.ObjectId;

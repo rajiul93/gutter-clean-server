@@ -2,13 +2,9 @@ import { z } from 'zod';
 
 export const upsertAddressZodSchema = z.object({
   body: z.object({
-    line1: z.string().min(1).max(200),
-    line2: z.string().max(200).optional(),
-    city: z.string().min(1).max(100),
-    state: z.string().min(1).max(100),
-    postalCode: z.string().min(3).max(20),
-    country: z.string().min(2).max(100).optional(),
+    name: z.string().min(1, 'Name is required').max(120),
+    email: z.string().min(3).max(200).email('Valid email is required'),
+    phone: z.string().min(3, 'Phone is required').max(40),
+    location: z.string().min(1, 'Location is required').max(500),
   }),
-  query: z.record(z.string(), z.unknown()),
-  params: z.record(z.string(), z.unknown()),
 });

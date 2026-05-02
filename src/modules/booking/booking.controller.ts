@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import httpStatus from 'http-status';
 import catchAsync from '../../utils/catchAsync';
 import sendResponse from '../../utils/sendResponse';
+import type { BookingStatus } from './booking.interface';
 import * as BookingService from './booking.service';
 
 const createBooking = catchAsync(async (req: Request, res: Response) => {
@@ -36,8 +37,16 @@ const listAdmin = catchAsync(async (req: Request, res: Response) => {
   return sendResponse(res, httpStatus.OK, 'Bookings retrieved', result);
 });
 
+const patchAdminStatus = catchAsync(async (req: Request, res: Response) => {
+  const id = typeof req.params.id === 'string' ? req.params.id : req.params.id?.[0] ?? '';
+  const { status } = req.body as { status: BookingStatus };
+  const result = await BookingService.updateAdminBookingStatus(id, status);
+  return sendResponse(res, httpStatus.OK, 'Booking status updated', result);
+});
+
 export const BookingController = {
   createBooking,
   listMine,
   listAdmin,
+  patchAdminStatus,
 };

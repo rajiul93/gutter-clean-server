@@ -45,18 +45,17 @@ const authenticate = catchAsync(async (req: Request, res: Response, next: NextFu
   const normalizedEmail = email.toLowerCase().trim();
   const isAdminEmail = config.admin_emails.includes(normalizedEmail);
 
+  // Fields that should refresh on every login (apply on both insert & update).
   const $set: Record<string, unknown> = { email: normalizedEmail };
   if (displayName) $set.displayName = displayName;
   if (photoURL) $set.photoURL = photoURL;
+  // Only promote to ADMIN; never auto-demote here.
   if (isAdminEmail) $set.role = 'ADMIN';
 
-  const $setOnInsert: Record<string, unknown> = {
-    firebaseUid,
-    email: normalizedEmail,
-    role: isAdminEmail ? 'ADMIN' : 'USER',
-  };
-  if (displayName !== undefined) $setOnInsert.displayName = displayName;
-  if (photoURL !== undefined) $setOnInsert.photoURL = photoURL;
+  // Only fields NOT in $set go here, otherwise Mongo throws
+  // "Updating the path 'X' would create a conflict at 'X'".
+  // Schema default ('USER') covers role for non-admin first-time users.
+  const $setOnInsert: Record<string, unknown> = { firebaseUid };
 
   const user = await User.findOneAndUpdate(
     { firebaseUid },

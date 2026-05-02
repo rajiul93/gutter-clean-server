@@ -10,6 +10,7 @@ import {
 } from '../../lib/booking-pricing';
 import { SLOT_CAPACITY_PER_PERIOD, type SlotPeriod } from '../../lib/slot-capacity';
 import { Booking } from './booking.model';
+import type { BookingStatus } from './booking.interface';
 
 async function countActiveSlotBookings(dateISO: string, slot: SlotPeriod): Promise<number> {
   return Booking.countDocuments({
@@ -127,4 +128,41 @@ export async function listAllBookingsAdmin(opts: AdminListOpts) {
     Booking.countDocuments(filter),
   ]);
   return { items, total, page, limit };
+}
+
+const STATUS_TRANSITIONS: Record<BookingStatus, BookingStatus[]> = {
+  pending: ['confirmed', 'cancelled'],
+  confirmed: ['in_progress', 'cancelled'],
+  in_progress: ['completed', 'cancelled'],
+  completed: [],
+  cancelled: [],
+};
+
+export async function updateAdminBookingStatus(bookingId: string, nextStatus: BookingStatus) {
+  if (!Types.ObjectId.isValid(bookingId)) {
+    throw new AppError('Invalid booking id', httpStatus.BAD_REQUEST);
+  }
+  const doc = await Booking.findById(bookingId).lean();
+  if (!doc) {
+    throw new AppError('Booking not found', httpStatus.NOT_FOUND);
+  }
+  const current = doc.status as BookingStatus;
+  const allowed = STATUS_TRANSITIONS[current];
+  if (!allowed.includes(nextStatus)) {
+    throw new AppError(
+      `Cannot change status from "${current}" to "${nextStatus}".`,
+      httpStatus.BAD_REQUEST,
+    );
+  }
+  const updated = await Booking.findByIdAndUpdate(
+    bookingId,
+    { $set: { status: nextStatus } },
+    { new: true, runValidators: true },
+  )
+    .populate('userId', 'email displayName')
+    .lean();
+  if (!updated) {
+    throw new AppError('Booking not found', httpStatus.NOT_FOUND);
+  }
+  return updated;
 }
