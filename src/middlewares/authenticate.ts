@@ -2,14 +2,22 @@ import httpStatus from 'http-status';
 import { NextFunction, Request, Response } from 'express';
 import config from '../config';
 import AppError from '../errors/AppError';
-import { getFirebaseAdmin } from '../lib/firebase-admin';
+import { verifyFirebaseIdToken } from '../lib/verify-firebase-id-token';
 import { User } from '../modules/user/user.model';
 import catchAsync from '../utils/catchAsync';
 
 /**
- * Verifies Firebase ID token and attaches `req.appUser` (upserts Mongo user).
+ * Verifies Firebase ID token (JWKS, no Admin SDK) and attaches `req.appUser` (upserts Mongo user).
  */
 const authenticate = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
+  const projectId = config.firebase_project_id?.trim();
+  if (!projectId) {
+    throw new AppError(
+      'Set FIREBASE_PROJECT_ID to your Firebase project ID (same value as NEXT_PUBLIC_FIREBASE_PROJECT_ID on the web app).',
+      httpStatus.INTERNAL_SERVER_ERROR,
+    );
+  }
+
   const header = req.headers.authorization;
   if (!header?.startsWith('Bearer ')) {
     throw new AppError('Authorization Bearer token required', httpStatus.UNAUTHORIZED);
@@ -19,8 +27,13 @@ const authenticate = catchAsync(async (req: Request, res: Response, next: NextFu
     throw new AppError('Authorization Bearer token required', httpStatus.UNAUTHORIZED);
   }
 
-  const adminSdk = getFirebaseAdmin();
-  const decoded = await adminSdk.auth().verifyIdToken(idToken);
+  let decoded;
+  try {
+    decoded = await verifyFirebaseIdToken(idToken, projectId);
+  } catch {
+    throw new AppError('Invalid or expired session. Please sign in again.', httpStatus.UNAUTHORIZED);
+  }
+
   const email = decoded.email;
   if (!email) {
     throw new AppError('Your account must have an email address', httpStatus.BAD_REQUEST);
@@ -28,27 +41,31 @@ const authenticate = catchAsync(async (req: Request, res: Response, next: NextFu
 
   const firebaseUid = decoded.uid;
   const displayName = decoded.name ?? undefined;
-  const photoURL = (decoded as { picture?: string }).picture ?? undefined;
+  const photoURL = decoded.picture ?? undefined;
   const normalizedEmail = email.toLowerCase().trim();
   const isAdminEmail = config.admin_emails.includes(normalizedEmail);
 
-  let user = await User.findOne({ firebaseUid });
+  const $set: Record<string, unknown> = { email: normalizedEmail };
+  if (displayName) $set.displayName = displayName;
+  if (photoURL) $set.photoURL = photoURL;
+  if (isAdminEmail) $set.role = 'ADMIN';
+
+  const $setOnInsert: Record<string, unknown> = {
+    firebaseUid,
+    email: normalizedEmail,
+    role: isAdminEmail ? 'ADMIN' : 'USER',
+  };
+  if (displayName !== undefined) $setOnInsert.displayName = displayName;
+  if (photoURL !== undefined) $setOnInsert.photoURL = photoURL;
+
+  const user = await User.findOneAndUpdate(
+    { firebaseUid },
+    { $set, $setOnInsert },
+    { new: true, upsert: true, setDefaultsOnInsert: true, runValidators: true },
+  );
+
   if (!user) {
-    user = await User.create({
-      firebaseUid,
-      email: normalizedEmail,
-      displayName,
-      photoURL,
-      role: isAdminEmail ? 'ADMIN' : 'USER',
-    });
-  } else {
-    user.email = normalizedEmail;
-    if (displayName) user.displayName = displayName;
-    if (photoURL) user.photoURL = photoURL;
-    if (isAdminEmail && user.role !== 'ADMIN') {
-      user.role = 'ADMIN';
-    }
-    await user.save();
+    throw new AppError('Could not load user profile', httpStatus.INTERNAL_SERVER_ERROR);
   }
 
   req.appUser = {

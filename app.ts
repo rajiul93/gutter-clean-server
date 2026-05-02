@@ -10,9 +10,14 @@ import { AdminBookingRoutes, BookingRoutes } from './src/modules/booking/booking
 
 const app = express();
 
+const corsOrigins = config.cors_origin
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+
 app.use(
   cors({
-    origin: config.cors_origin.split(',').map((o) => o.trim()),
+    origin: corsOrigins.length ? corsOrigins : ['http://localhost:3000'],
     credentials: true,
   }),
 );
