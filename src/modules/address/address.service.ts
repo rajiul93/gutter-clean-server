@@ -27,7 +27,12 @@ export async function upsertAddressForUser(
       },
       $setOnInsert: { userId: oid },
     },
-    { new: true, upsert: true, setDefaultsOnInsert: true, runValidators: true },
+    {
+      returnDocument: 'after',
+      upsert: true,
+      setDefaultsOnInsert: true,
+      runValidators: true,
+    },
   ).lean();
   return doc;
 }

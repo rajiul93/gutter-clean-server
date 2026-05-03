@@ -157,7 +157,7 @@ export async function updateAdminBookingStatus(bookingId: string, nextStatus: Bo
   const updated = await Booking.findByIdAndUpdate(
     bookingId,
     { $set: { status: nextStatus } },
-    { new: true, runValidators: true },
+    { returnDocument: 'after', runValidators: true },
   )
     .populate('userId', 'email displayName')
     .lean();

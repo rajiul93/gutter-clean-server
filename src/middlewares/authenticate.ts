@@ -60,7 +60,12 @@ const authenticate = catchAsync(async (req: Request, res: Response, next: NextFu
   const user = await User.findOneAndUpdate(
     { firebaseUid },
     { $set, $setOnInsert },
-    { new: true, upsert: true, setDefaultsOnInsert: true, runValidators: true },
+    {
+      returnDocument: 'after',
+      upsert: true,
+      setDefaultsOnInsert: true,
+      runValidators: true,
+    },
   );
 
   if (!user) {

@@ -1,6 +1,7 @@
-import express, { Request, Response } from 'express';
+import express, { NextFunction, Request, Response } from 'express';
 import cors from 'cors';
 import config from './src/config';
+import { connectDB } from './src/lib/db';
 import AppError from './src/errors/AppError';
 import globalErrorHandler from './src/middlewares/globalErrorHandler';
 import { AuthRoutes } from './src/modules/auth/auth.router';
@@ -10,6 +11,7 @@ import {
   AdminBookingRoutes,
   BookingRoutes,
 } from './src/modules/booking/booking.router';
+import catchAsync from './src/utils/catchAsync';
 
 const app = express();
 
@@ -29,6 +31,14 @@ app.use(
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+/** Ensure MongoDB is connected (required for Vercel serverless where `server.ts` never runs). */
+app.use(
+  catchAsync(async (_req: Request, _res: Response, next: NextFunction) => {
+    await connectDB();
+    next();
+  }),
+);
 
 app.get('/', (req: Request, res: Response) => {
   res.send('Gutter API');
