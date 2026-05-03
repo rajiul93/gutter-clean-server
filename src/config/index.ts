@@ -4,7 +4,12 @@ export default {
   jwt_secret: process.env.JWT_SECRET as string,
   jwt_expires_in: process.env.JWT_EXPIRES_IN || '1d',
   /** Same as Firebase web `projectId` / `NEXT_PUBLIC_FIREBASE_PROJECT_ID` — used only to verify ID tokens. */
-  firebase_project_id: process.env.FIREBASE_PROJECT_ID as string | undefined,
+  firebase_project_id:
+    (
+      process.env.FIREBASE_PROJECT_ID ||
+      process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ||
+      ''
+    ).trim() || undefined,
   /** Comma-separated emails that receive ADMIN role on first sync */
   admin_emails: (process.env.ADMIN_EMAILS || '')
     .split(',')

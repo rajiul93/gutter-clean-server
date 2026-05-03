@@ -13,7 +13,7 @@ const authenticate = catchAsync(async (req: Request, res: Response, next: NextFu
   const projectId = config.firebase_project_id?.trim();
   if (!projectId) {
     throw new AppError(
-      'Set FIREBASE_PROJECT_ID to your Firebase project ID (same value as NEXT_PUBLIC_FIREBASE_PROJECT_ID on the web app).',
+      'Set FIREBASE_PROJECT_ID (or NEXT_PUBLIC_FIREBASE_PROJECT_ID) to your Firebase project ID — same value as on the Next.js web app.',
       httpStatus.INTERNAL_SERVER_ERROR,
     );
   }
