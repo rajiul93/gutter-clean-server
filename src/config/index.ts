@@ -15,5 +15,8 @@ export default {
     .split(',')
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean),
-  cors_origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+  /** Comma-separated browser origins (Next.js URLs). Preview deploys may need *.vercel.app entries. */
+  cors_origin:
+    process.env.CORS_ORIGIN?.trim() ||
+    'http://localhost:3000,https://gutter-clean-front.vercel.app',
 };

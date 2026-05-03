@@ -18,11 +18,11 @@ const corsOrigins = config.cors_origin
   .map((o) => o.trim())
   .filter(Boolean);
 
+const allowedOrigins = corsOrigins.length ? corsOrigins : ['http://localhost:3000'];
+
 app.use(
   cors({
-    origin: corsOrigins.length
-      ? corsOrigins
-      : ['http://localhost:3000', 'https://gutter-clean-front.vercel.app'],
+    origin: allowedOrigins,
     credentials: true,
   }),
 );
