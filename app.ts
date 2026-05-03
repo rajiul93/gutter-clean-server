@@ -6,7 +6,10 @@ import globalErrorHandler from './src/middlewares/globalErrorHandler';
 import { AuthRoutes } from './src/modules/auth/auth.router';
 import { AddressRoutes } from './src/modules/address/address.router';
 import { AvailabilityRoutes } from './src/modules/availability/availability.router';
-import { AdminBookingRoutes, BookingRoutes } from './src/modules/booking/booking.router';
+import {
+  AdminBookingRoutes,
+  BookingRoutes,
+} from './src/modules/booking/booking.router';
 
 const app = express();
 
@@ -17,7 +20,9 @@ const corsOrigins = config.cors_origin
 
 app.use(
   cors({
-    origin: corsOrigins.length ? corsOrigins : ['http://localhost:3000'],
+    origin: corsOrigins.length
+      ? corsOrigins
+      : ['http://localhost:3000', 'https://gutter-clean-front.vercel.app'],
     credentials: true,
   }),
 );
