@@ -1,4 +1,5 @@
 import httpStatus from 'http-status';
+import { Types } from 'mongoose';
 import AppError from '../../errors/AppError';
 import type {
   CallBookingPreferredSlot,
@@ -42,9 +43,11 @@ type CreateInput = {
   name: string;
   phone: string;
   serviceId: CallBookingServiceId;
+  preferredDateISO: string;
   preferredSlot: CallBookingPreferredSlot;
   address: string;
   notes?: string;
+  customerEmail?: string;
 };
 
 export async function createCallBooking(input: CreateInput) {
@@ -63,7 +66,9 @@ export async function createCallBooking(input: CreateInput) {
     name: input.name.trim(),
     phone: input.phone.trim(),
     phoneNormalized,
+    customerEmail: input.customerEmail?.trim().toLowerCase() || undefined,
     serviceId: input.serviceId,
+    preferredDateISO: input.preferredDateISO.trim(),
     preferredSlot: input.preferredSlot,
     address: input.address.trim(),
     notes: input.notes?.trim() || undefined,
@@ -75,9 +80,11 @@ type PatchInput = Partial<{
   name: string;
   phone: string;
   serviceId: CallBookingServiceId;
+  preferredDateISO: string;
   preferredSlot: CallBookingPreferredSlot;
   address: string;
   notes: string | null;
+  customerEmail: string | null;
 }>;
 
 export async function updateCallBooking(id: string, patch: PatchInput) {
@@ -89,10 +96,24 @@ export async function updateCallBooking(id: string, patch: PatchInput) {
   const $set: Record<string, unknown> = {};
   if (patch.name !== undefined) $set.name = patch.name.trim();
   if (patch.serviceId !== undefined) $set.serviceId = patch.serviceId;
+  if (patch.preferredDateISO !== undefined) {
+    const d = patch.preferredDateISO.trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+      throw new AppError('Preferred date invalid (use YYYY-MM-DD)', httpStatus.BAD_REQUEST);
+    }
+    $set.preferredDateISO = d;
+  }
   if (patch.preferredSlot !== undefined) $set.preferredSlot = patch.preferredSlot;
   if (patch.address !== undefined) $set.address = patch.address.trim();
   if (patch.notes !== undefined) {
     $set.notes = patch.notes === null || patch.notes === '' ? undefined : String(patch.notes).trim();
+  }
+  if (patch.customerEmail !== undefined) {
+    const t =
+      patch.customerEmail === null || patch.customerEmail === ''
+        ? undefined
+        : String(patch.customerEmail).trim().toLowerCase();
+    $set.customerEmail = t;
   }
   if (patch.phone !== undefined) {
     const next = patch.phone.trim();
@@ -125,21 +146,47 @@ export async function updateCallBooking(id: string, patch: PatchInput) {
   return updated;
 }
 
-type CallBookingDoc = Pick<
-  ICallBooking,
-  'name' | 'phone' | 'serviceId' | 'preferredSlot' | 'address' | 'notes' | 'createdAt' | 'updatedAt'
-> & { _id: { toString: () => string } };
+export async function attachBookingToLead(leadId: string, bookingId: string, canonicalEmail?: string) {
+  if (!Types.ObjectId.isValid(leadId) || !Types.ObjectId.isValid(bookingId)) {
+    throw new AppError('Invalid id', httpStatus.BAD_REQUEST);
+  }
+  const bookingOid = new Types.ObjectId(bookingId);
+  const existing = await CallBooking.findById(leadId);
+  if (!existing) {
+    throw new AppError('Call booking not found', httpStatus.NOT_FOUND);
+  }
+  if (existing.linkedBookingId) {
+    throw new AppError('This intake lead already has a dashboard booking', httpStatus.CONFLICT);
+  }
 
-export function toPublicRow(doc: CallBookingDoc) {
+  const $set: Record<string, unknown> = { linkedBookingId: bookingOid };
+  const emailTrim = canonicalEmail?.trim().toLowerCase();
+  if (emailTrim) {
+    $set.customerEmail = emailTrim;
+  }
+
+  await CallBooking.findByIdAndUpdate(
+    leadId,
+    { $set },
+    { runValidators: true },
+  );
+}
+
+export function toPublicRow(doc: unknown) {
+  const r = doc as Record<string, unknown>;
+  const _id = r._id as { toString: () => string };
   return {
-    _id: doc._id.toString(),
-    name: doc.name,
-    phone: doc.phone,
-    serviceId: doc.serviceId,
-    preferredSlot: doc.preferredSlot,
-    address: doc.address,
-    notes: doc.notes,
-    createdAt: doc.createdAt,
-    updatedAt: doc.updatedAt,
+    _id: _id.toString(),
+    name: r.name as string,
+    phone: r.phone as string,
+    serviceId: r.serviceId as CallBookingServiceId,
+    preferredDateISO: r.preferredDateISO as string | undefined,
+    preferredSlot: r.preferredSlot as CallBookingPreferredSlot,
+    address: r.address as string,
+    notes: r.notes as string | undefined,
+    linkedBookingId: r.linkedBookingId ? String(r.linkedBookingId) : undefined,
+    customerEmail: r.customerEmail as string | undefined,
+    createdAt: r.createdAt as Date | undefined,
+    updatedAt: r.updatedAt as Date | undefined,
   };
 }

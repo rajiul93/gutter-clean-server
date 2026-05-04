@@ -1,7 +1,10 @@
 import { Request, Response } from 'express';
 import httpStatus from 'http-status';
+import AppError from '../../errors/AppError';
+import type { ServiceId } from '../../lib/booking-pricing';
 import catchAsync from '../../utils/catchAsync';
 import sendResponse from '../../utils/sendResponse';
+import * as BookingService from '../booking/booking.service';
 import * as CallBookingService from './call-booking.service';
 
 function paramId(req: Request): string {
@@ -64,10 +67,79 @@ const patch = catchAsync(async (req: Request, res: Response) => {
   return sendResponse(res, httpStatus.OK, 'Call booking updated', CallBookingService.toPublicRow(updated));
 });
 
+const createSiteBooking = catchAsync(async (req: Request, res: Response) => {
+  const id = paramId(req);
+  const body = req.body as {
+    customerUserId?: string;
+    email?: string;
+    dateISO?: string;
+    slot: 'morning' | 'afternoon' | 'evening';
+    serviceId?: ServiceId;
+    featureIds?: string[];
+    size: 'small' | 'medium' | 'large';
+    name?: string;
+    phone?: string;
+    location?: string;
+  };
+
+  const lead = await CallBookingService.getCallBookingById(id);
+  if (lead.linkedBookingId) {
+    throw new AppError('This phone lead already has a dashboard booking', httpStatus.CONFLICT);
+  }
+
+  const dateISO = (body.dateISO ?? lead.preferredDateISO)?.trim();
+  if (!dateISO || !/^\d{4}-\d{2}-\d{2}$/.test(dateISO)) {
+    throw new AppError(
+      'Pick a valid visit date (YYYY-MM-DD) on the intake lead or send dateISO.',
+      httpStatus.BAD_REQUEST,
+    );
+  }
+
+  const serviceId = (body.serviceId ?? lead.serviceId) as ServiceId;
+
+  const { mongoUserId, canonicalEmail } = await BookingService.resolveMongoUserIdForBooking({
+    customerMongoUserId: body.customerUserId,
+    accountLookupEmail: body.email,
+  });
+
+  const createdPlain = await BookingService.createBooking({
+    userId: mongoUserId,
+    dateISO,
+    slot: body.slot,
+    serviceId,
+    featureIds: body.featureIds ?? [],
+    size: body.size,
+    name: (body.name?.trim() || lead.name).trim(),
+    email: canonicalEmail,
+    phone: (body.phone?.trim() || lead.phone).trim(),
+    location: (body.location?.trim() || lead.address).trim(),
+  });
+
+  const bookingIdStr = String((createdPlain as { _id: { toString(): string } })._id);
+
+  await CallBookingService.attachBookingToLead(id, bookingIdStr, canonicalEmail);
+
+  const freshLead = await CallBookingService.getCallBookingById(id);
+
+  return sendResponse(res, httpStatus.CREATED, 'Dashboard booking created from phone intake', {
+    lead: CallBookingService.toPublicRow(freshLead),
+    booking: {
+      _id: bookingIdStr,
+      dateISO: createdPlain.dateISO,
+      slot: createdPlain.slot,
+      serviceId: createdPlain.serviceId,
+      total: createdPlain.total,
+      status: createdPlain.status,
+      userId: String((createdPlain as { userId: { toString(): string } }).userId ?? mongoUserId),
+    },
+  });
+});
+
 export const CallBookingController = {
   lookup,
   list,
   getOne,
   create,
   patch,
+  createSiteBooking,
 };

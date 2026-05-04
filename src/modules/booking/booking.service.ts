@@ -9,6 +9,7 @@ import {
   type ServiceId,
 } from '../../lib/booking-pricing';
 import { SLOT_CAPACITY_PER_PERIOD, type SlotPeriod } from '../../lib/slot-capacity';
+import { User } from '../user/user.model';
 import { Booking } from './booking.model';
 import type { BookingStatus } from './booking.interface';
 
@@ -45,6 +46,38 @@ type CreatePayload = {
   phone: string;
   location: string;
 };
+
+/**
+ * Finds the Mongo User that should own this booking — same account that powers /dashboard bookings.
+ */
+export async function resolveMongoUserIdForBooking(options: {
+  customerMongoUserId?: string;
+  accountLookupEmail?: string;
+}) {
+  const idStr = options.customerMongoUserId?.trim();
+  if (idStr && Types.ObjectId.isValid(idStr)) {
+    const u = await User.findById(idStr).lean();
+    if (!u) {
+      throw new AppError('Customer user id not found', httpStatus.NOT_FOUND);
+    }
+    return { mongoUserId: u._id.toString(), canonicalEmail: u.email };
+  }
+  const lookup = options.accountLookupEmail?.trim().toLowerCase();
+  if (lookup) {
+    const u = await User.findOne({ email: lookup }).lean();
+    if (!u) {
+      throw new AppError(
+        'No account found for this email — the customer must sign up once on the site with that email.',
+        httpStatus.NOT_FOUND,
+      );
+    }
+    return { mongoUserId: u._id.toString(), canonicalEmail: u.email };
+  }
+  throw new AppError(
+    'Provide either customerMongoUserId (Mongo User id) or the customer signed-in email',
+    httpStatus.BAD_REQUEST,
+  );
+}
 
 export async function createBooking(payload: CreatePayload) {
   const { dateISO, slot, serviceId, featureIds, size, name, email, phone, location, userId } =

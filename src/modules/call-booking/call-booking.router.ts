@@ -5,6 +5,7 @@ import validateRequest from '../../middlewares/validateRequest';
 import { CallBookingController } from './call-booking.controller';
 import {
   createCallBookingZodSchema,
+  createSiteBookingFromLeadZodSchema,
   getCallBookingByIdZodSchema,
   listCallBookingQueryZodSchema,
   lookupCallBookingZodSchema,
@@ -21,11 +22,12 @@ router.get(
   CallBookingController.lookup,
 );
 router.get('/', validateRequest(listCallBookingQueryZodSchema), CallBookingController.list);
-router.get(
-  '/:id',
-  validateRequest(getCallBookingByIdZodSchema),
-  CallBookingController.getOne,
+router.post(
+  '/:id/site-booking',
+  validateRequest(createSiteBookingFromLeadZodSchema),
+  CallBookingController.createSiteBooking,
 );
+router.get('/:id', validateRequest(getCallBookingByIdZodSchema), CallBookingController.getOne);
 router.post('/', validateRequest(createCallBookingZodSchema), CallBookingController.create);
 router.patch('/:id', validateRequest(patchCallBookingZodSchema), CallBookingController.patch);
 
