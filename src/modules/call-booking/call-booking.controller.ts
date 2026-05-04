@@ -85,9 +85,6 @@ const createSiteBooking = catchAsync(async (req: Request, res: Response) => {
   };
 
   const lead = await CallBookingService.getCallBookingById(id);
-  if (lead.linkedBookingId) {
-    throw new AppError('This phone lead already has a dashboard booking', httpStatus.CONFLICT);
-  }
 
   const dateISO = (body.dateISO ?? lead.preferredDateISO)?.trim();
   if (!dateISO || !/^\d{4}-\d{2}-\d{2}$/.test(dateISO)) {

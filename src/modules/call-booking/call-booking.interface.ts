@@ -9,7 +9,7 @@ export interface ICallBooking {
   name: string;
   phone: string;
   phoneNormalized: string;
-  /** If set, intake was converted into a real site `Booking`; customer sees it on their dashboard. */
+  /** Last site `Booking` created from this intake (repeat callers update this pointer; history stays under admin Online bookings). */
   linkedBookingId?: Types.ObjectId;
   /** Customer’s registered/login email — used to link bookings to their account when possible. */
   customerEmail?: string;

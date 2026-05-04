@@ -155,10 +155,7 @@ export async function attachBookingToLead(leadId: string, bookingId: string, can
   if (!existing) {
     throw new AppError('Call booking not found', httpStatus.NOT_FOUND);
   }
-  if (existing.linkedBookingId) {
-    throw new AppError('This intake lead already has a dashboard booking', httpStatus.CONFLICT);
-  }
-
+  /** Points at the last booking created from this intake; older jobs remain in `{Booking}` / admin Online bookings. */
   const $set: Record<string, unknown> = { linkedBookingId: bookingOid };
   const emailTrim = canonicalEmail?.trim().toLowerCase();
   if (emailTrim) {
