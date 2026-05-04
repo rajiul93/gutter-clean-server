@@ -10,7 +10,8 @@ export type BookingStatus =
   | 'cancelled';
 
 export interface IBooking {
-  userId: Types.ObjectId;
+  /** Set when the customer has a linked site User; omit for pure phone-admin bookings. */
+  userId?: Types.ObjectId;
   dateISO: string;
   slot: SlotPeriod;
   serviceId: ServiceId;

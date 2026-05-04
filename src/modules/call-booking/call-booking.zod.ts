@@ -83,11 +83,7 @@ export const createSiteBookingFromLeadZodSchema = z.object({
       phone: z.string().min(5).max(40).optional(),
       location: z.string().min(3).max(2000).optional(),
     })
-    .strict()
-    .refine((b) => !!(b.customerUserId || b.email), {
-      message: 'Provide customerUserId or registered email',
-      path: ['email'],
-    }),
+    .strict(),
   query: z.object({}).strict(),
   params: mongoIdParam,
 });

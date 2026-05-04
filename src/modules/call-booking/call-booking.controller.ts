@@ -1,9 +1,11 @@
 import { Request, Response } from 'express';
 import httpStatus from 'http-status';
+import { Types } from 'mongoose';
 import AppError from '../../errors/AppError';
 import type { ServiceId } from '../../lib/booking-pricing';
 import catchAsync from '../../utils/catchAsync';
 import sendResponse from '../../utils/sendResponse';
+import { User } from '../user/user.model';
 import * as BookingService from '../booking/booking.service';
 import * as CallBookingService from './call-booking.service';
 
@@ -97,27 +99,55 @@ const createSiteBooking = catchAsync(async (req: Request, res: Response) => {
 
   const serviceId = (body.serviceId ?? lead.serviceId) as ServiceId;
 
-  const { mongoUserId, canonicalEmail } = await BookingService.resolveMongoUserIdForBooking({
-    customerMongoUserId: body.customerUserId,
-    accountLookupEmail: body.email,
-  });
+  const mongoIdCandidate = body.customerUserId?.trim();
+  let linkedUserId: string | undefined;
+  let bookingEmail = '';
+
+  if (mongoIdCandidate && Types.ObjectId.isValid(mongoIdCandidate)) {
+    const accountById = await User.findById(mongoIdCandidate).select('email').lean();
+    if (!accountById) {
+      throw new AppError('Customer user id not found', httpStatus.NOT_FOUND);
+    }
+    linkedUserId = String(accountById._id);
+    bookingEmail = accountById.email;
+  } else {
+    const raw =
+      body.email?.trim().toLowerCase() ||
+      lead.customerEmail?.trim().toLowerCase() ||
+      '';
+    if (raw) {
+      const accountByEmail = await User.findOne({ email: raw }).select('email').lean();
+      if (accountByEmail) {
+        linkedUserId = String(accountByEmail._id);
+        bookingEmail = accountByEmail.email;
+      } else {
+        bookingEmail = raw;
+      }
+    } else {
+      const digits = CallBookingService.normalizePhone(body.phone ?? lead.phone);
+      bookingEmail = `phone-${digits || 'guest'}@phone-intake.invalid`;
+    }
+  }
 
   const createdPlain = await BookingService.createBooking({
-    userId: mongoUserId,
+    ...(linkedUserId ? { userId: linkedUserId } : {}),
     dateISO,
     slot: body.slot,
     serviceId,
     featureIds: body.featureIds ?? [],
     size: body.size,
     name: (body.name?.trim() || lead.name).trim(),
-    email: canonicalEmail,
+    email: bookingEmail,
     phone: (body.phone?.trim() || lead.phone).trim(),
     location: (body.location?.trim() || lead.address).trim(),
   });
 
   const bookingIdStr = String((createdPlain as { _id: { toString(): string } })._id);
 
-  await CallBookingService.attachBookingToLead(id, bookingIdStr, canonicalEmail);
+  const persistOnLeadEmail = bookingEmail.endsWith('@phone-intake.invalid')
+    ? undefined
+    : bookingEmail;
+  await CallBookingService.attachBookingToLead(id, bookingIdStr, persistOnLeadEmail);
 
   const freshLead = await CallBookingService.getCallBookingById(id);
 
@@ -130,7 +160,7 @@ const createSiteBooking = catchAsync(async (req: Request, res: Response) => {
       serviceId: createdPlain.serviceId,
       total: createdPlain.total,
       status: createdPlain.status,
-      userId: String((createdPlain as { userId: { toString(): string } }).userId ?? mongoUserId),
+      userId: linkedUserId ?? null,
     },
   });
 });

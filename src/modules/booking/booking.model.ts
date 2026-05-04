@@ -3,7 +3,13 @@ import { IBooking } from './booking.interface';
 
 const bookingSchema = new Schema<IBooking>(
   {
-    userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+    userId: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      required: false,
+      index: true,
+      sparse: true,
+    },
     dateISO: { type: String, required: true, index: true },
     slot: {
       type: String,
