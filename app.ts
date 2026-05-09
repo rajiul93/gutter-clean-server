@@ -12,6 +12,10 @@ import {
   BookingRoutes,
 } from './src/modules/booking/booking.router';
 import { CallBookingRoutes } from './src/modules/call-booking/call-booking.router';
+import {
+  HeroLeadAdminRoutes,
+  HeroLeadPublicRoutes,
+} from './src/modules/hero-lead/hero-lead.router';
 import catchAsync from './src/utils/catchAsync';
 
 const app = express();
@@ -49,6 +53,8 @@ app.use('/api/v1/auth', AuthRoutes);
 app.use('/api/v1/bookings', BookingRoutes);
 app.use('/api/v1/admin/bookings', AdminBookingRoutes);
 app.use('/api/v1/admin/call-bookings', CallBookingRoutes);
+app.use('/api/v1/hero-leads', HeroLeadPublicRoutes);
+app.use('/api/v1/admin/hero-leads', HeroLeadAdminRoutes);
 app.use('/api/v1/availability', AvailabilityRoutes);
 app.use('/api/v1/me/address', AddressRoutes);
 
